@@ -1,0 +1,26 @@
+groups:
+  - name: ml-alerts
+    rules:
+      - alert: DataDriftDetected
+        expr: data_drift_detected == 1
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Input data drift detected - consider retraining"
+
+      - alert: HighPredictionLatency
+        expr: histogram_quantile(0.95, sum(rate(prediction_latency_seconds_bucket[1m])) by (le)) > 0.5
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "p95 prediction latency above 500 ms"
+
+      - alert: FraudRateSpike
+        expr: sum(rate(predictions_total{label="fraud"}[1m])) / sum(rate(predictions_total[1m])) > 0.1
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "More than 10% of predictions are fraud"
