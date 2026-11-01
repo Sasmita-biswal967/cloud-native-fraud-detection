@@ -4,6 +4,8 @@ services:
     image: fraud-api:v1
     ports:
       - "8000:8000"
+    volumes:
+      - ./artifacts:/srv/artifacts:ro
 
   prometheus:
     image: prom/prometheus:v2.53.0

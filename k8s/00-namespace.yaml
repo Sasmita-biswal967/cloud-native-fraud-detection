@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ml-platform
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fraud-api
+  namespace: ml-platform
+  annotations:
+    # replaced by scripts/demo-up.ps1 with the role created by Terraform (IRSA)
+    eks.amazonaws.com/role-arn: REPLACE_API_ROLE_ARN
