@@ -1,7 +1,6 @@
-import json, random, urllib.request
+import json, os, random, urllib.request
 import pandas as pd
-
-URL = "http://127.0.0.1:8000"
+URL = os.environ.get("API_URL", "http://127.0.0.1:8000")
 df = pd.read_csv("data/creditcard.csv")
 features = json.load(open("artifacts/metadata.json"))["features"]
 v_cols = [c for c in features if c.startswith("V")]

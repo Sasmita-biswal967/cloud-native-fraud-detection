@@ -1,4 +1,4 @@
-import json, os, threading
+import json, os, threading, time
 from collections import deque
 from contextlib import asynccontextmanager
 
@@ -7,13 +7,15 @@ from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel
 from prometheus_client import Counter, Gauge, Histogram, generate_latest, CONTENT_TYPE_LATEST
 
+from app.cloudwatch_metrics import publisher
+
 MODEL_DIR = os.getenv("MODEL_DIR", "artifacts")
-MODEL_BUCKET = os.getenv("MODEL_BUCKET")            # set later on AWS: model is pulled from S3
+MODEL_BUCKET = os.getenv("MODEL_BUCKET")            # set on AWS: model is pulled from S3
 MODEL_VERSION = os.getenv("MODEL_VERSION", "latest")
 WINDOW = int(os.getenv("DRIFT_WINDOW", "200"))      # recent requests used for the drift check
 DRIFT_THRESHOLD = float(os.getenv("DRIFT_THRESHOLD", "1.0"))
 
-# ---- Prometheus metrics ----
+# ---- local /metrics endpoint (handy for debugging; CloudWatch is the monitoring system on AWS) ----
 PRED_TOTAL = Counter("predictions_total", "Predictions served", ["label"])
 LATENCY = Histogram("prediction_latency_seconds", "Prediction latency")
 FRAUD_PROB = Histogram("fraud_probability", "Predicted fraud probability",
@@ -47,7 +49,9 @@ async def lifespan(app):
         state["model"], state["meta"] = load_model()
     except Exception as e:      # stay alive so /health can report the problem
         print("Model load failed:", e)
+    publisher.start()           # no-op unless CLOUDWATCH_NAMESPACE is set
     yield
+    publisher.stop()
 
 
 app = FastAPI(title="Fraud Detection API", version="1.0", lifespan=lifespan)
@@ -86,8 +90,10 @@ def predict(tx: Transaction):
         raise HTTPException(422, f"missing features: {missing[:5]}")
 
     row = pd.DataFrame([[tx.features[f] for f in meta["features"]]], columns=meta["features"])
-    with LATENCY.time():
-        prob = float(state["model"].predict_proba(row)[0, 1])
+    start = time.perf_counter()
+    prob = float(state["model"].predict_proba(row)[0, 1])
+    elapsed = time.perf_counter() - start
+    LATENCY.observe(elapsed)
 
     label = "fraud" if prob >= meta["threshold"] else "legit"
     PRED_TOTAL.labels(label).inc()
@@ -97,6 +103,7 @@ def predict(tx: Transaction):
         recent.append(tx.features)
         drift = compute_drift() if len(recent) >= min(50, WINDOW) else None
 
+    publisher.record(elapsed, prob, label, drift, DRIFT_THRESHOLD)
     return {"fraud_probability": prob, "prediction": label,
             "threshold": meta["threshold"], "model_version": meta["version"],
             "drift_score": drift}

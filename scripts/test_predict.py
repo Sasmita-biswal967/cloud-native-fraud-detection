@@ -1,7 +1,8 @@
-import json, sys, urllib.request
+import json, os, sys, urllib.request
 import pandas as pd
 
-URL = "http://127.0.0.1:8000"
+URL = os.environ.get("API_URL", "http://127.0.0.1:8000")
+
 df = pd.read_csv("data/creditcard.csv")
 features = json.load(open("artifacts/metadata.json"))["features"]
 
