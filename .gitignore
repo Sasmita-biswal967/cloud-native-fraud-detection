@@ -22,3 +22,4 @@ kubeconfig
 *.tfplan
 *.tfvars
 crash.log
+.pytest_cache/

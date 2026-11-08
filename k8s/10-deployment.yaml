@@ -4,13 +4,13 @@ metadata:
   name: fraud-api
   namespace: ml-platform
 spec:
-  replicas: 2
+  replicas: 1
   revisionHistoryLimit: 5
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxUnavailable: 0   
-      maxSurge: 1
+      maxUnavailable: 1   
+      maxSurge: 0
   selector:
     matchLabels:
       app: fraud-api
@@ -89,8 +89,8 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: fraud-api
-  minReplicas: 2
-  maxReplicas: 6          
+  minReplicas: 1
+  maxReplicas: 2        
   metrics:
     - type: Resource
       resource:
